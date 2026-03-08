@@ -5,80 +5,168 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SuperInfo - AI Wikipedia</title>
     
-    <!-- Tailwind CSS for styling -->
+    <!-- Google Fonts: Roboto for Material 3 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Serif:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Marked.js for rendering Markdown -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Tailwind Material 3 Configuration -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0061a4',
+                        'on-primary': '#ffffff',
+                        'primary-container': '#d1e4ff',
+                        'on-primary-container': '#001d36',
+                        secondary: '#535f70',
+                        'on-secondary': '#ffffff',
+                        'secondary-container': '#d7e3f7',
+                        'on-secondary-container': '#101c2b',
+                        tertiary: '#6b5778',
+                        'tertiary-container': '#f2daff',
+                        'on-tertiary-container': '#251431',
+                        surface: '#fdfcff',
+                        'on-surface': '#1a1c1e',
+                        'surface-variant': '#dfe2eb',
+                        'on-surface-variant': '#43474e',
+                        'surface-container': '#f2f0f4',
+                        'surface-container-high': '#eceaef',
+                        'surface-container-highest': '#e6e4e9',
+                        outline: '#73777f',
+                        'outline-variant': '#c3c7cf',
+                        error: '#ba1a1a',
+                        'error-container': '#ffdad6',
+                        'on-error-container': '#410002',
+                    },
+                    fontFamily: {
+                        sans: ['Roboto', 'sans-serif'],
+                        serif: ['Roboto Serif', 'serif'],
+                    },
+                    borderRadius: {
+                        '4xl': '28px',
+                    },
+                    boxShadow: {
+                        'm3-elevation-1': '0px 1px 2px 0px rgba(0, 0, 0, 0.3), 0px 1px 3px 1px rgba(0, 0, 0, 0.15)',
+                        'm3-elevation-3': '0px 1px 3px 0px rgba(0, 0, 0, 0.3), 0px 4px 8px 3px rgba(0, 0, 0, 0.15)',
+                    }
+                }
+            }
+        }
+    </script>
     
-    <!-- Lucide Icons -->
+    <!-- Marked.js & Lucide Icons -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        /* Custom typography styles to mimic Wikipedia */
-        .markdown-body h1 { font-size: 2.25rem; font-weight: 700; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; margin-top: 2rem; margin-bottom: 1rem; font-family: Georgia, serif; }
-        .markdown-body h2 { font-size: 1.75rem; font-weight: 600; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.25rem; margin-top: 1.75rem; margin-bottom: 1rem; font-family: Georgia, serif; }
-        .markdown-body h3 { font-size: 1.25rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.75rem; }
-        .markdown-body p { margin-bottom: 1rem; line-height: 1.7; }
-        .markdown-body ul { list-style-type: disc; padding-left: 2rem; margin-bottom: 1rem; }
-        .markdown-body ol { list-style-type: decimal; padding-left: 2rem; margin-bottom: 1rem; }
-        .markdown-body strong { font-weight: 600; color: #111827; }
-        .markdown-body a { color: #2563eb; text-decoration: none; cursor: pointer; }
-        .markdown-body a:hover { text-decoration: underline; }
-        .markdown-body blockquote { border-left: 4px solid #e5e7eb; padding-left: 1rem; color: #4b5563; font-style: italic; }
+        /* M3 Typography for Markdown */
+        .markdown-body h1 { font-size: 2.25rem; font-weight: 400; padding-bottom: 0.5rem; margin-top: 2.5rem; margin-bottom: 1rem; color: theme('colors.on-surface'); letter-spacing: 0px; }
+        .markdown-body h2 { font-size: 1.75rem; font-weight: 400; margin-top: 2rem; margin-bottom: 1rem; color: theme('colors.on-surface'); border-bottom: 1px solid theme('colors.surface-variant'); padding-bottom: 0.5rem; }
+        .markdown-body h3 { font-size: 1.375rem; font-weight: 500; margin-top: 1.5rem; margin-bottom: 0.75rem; color: theme('colors.on-surface'); }
+        .markdown-body p { margin-bottom: 1.25rem; line-height: 1.6; color: theme('colors.on-surface-variant'); font-size: 1.05rem; }
+        .markdown-body ul { list-style-type: disc; padding-left: 2rem; margin-bottom: 1.25rem; color: theme('colors.on-surface-variant'); }
+        .markdown-body ol { list-style-type: decimal; padding-left: 2rem; margin-bottom: 1.25rem; color: theme('colors.on-surface-variant'); }
+        .markdown-body li { margin-bottom: 0.5rem; }
+        .markdown-body strong { font-weight: 500; color: theme('colors.on-surface'); }
+        .markdown-body a { color: theme('colors.primary'); text-decoration: none; font-weight: 500; border-radius: 4px; padding: 0 2px; transition: background-color 0.2s; }
+        .markdown-body a:hover { background-color: theme('colors.primary-container'); text-decoration: underline; }
+        .markdown-body blockquote { border-left: 4px solid theme('colors.primary'); padding-left: 1rem; margin-left: 0; margin-right: 0; color: theme('colors.on-surface-variant'); background: theme('colors.surface-container'); padding: 1rem; border-radius: 0 12px 12px 0; }
         
+        /* Material 3 Circular Loader */
         .loader {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3b82f6;
+            width: 48px;
+            height: 48px;
+            border: 4px solid theme('colors.primary-container');
+            border-bottom-color: theme('colors.primary');
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
+            display: inline-block;
+            box-sizing: border-box;
+            animation: rotation 1s linear infinite;
         }
-        @keyframes spin {
+        @keyframes rotation {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
         
-        #search-container { transition: all 0.5s ease-in-out; }
+        /* Layout Transitions */
+        #search-container { transition: all 0.6s cubic-bezier(0.2, 0, 0, 1); }
         .centered-search { min-height: 80vh; display: flex; flex-direction: column; justify-content: center; }
         .top-search { min-height: auto; padding-top: 2rem; padding-bottom: 2rem; }
 
-        /* Kebab Menu styles */
+        /* Kebab Menu Animation */
         .menu-dropdown {
-            display: none;
-            position: absolute;
-            right: 0;
-            top: 100%;
-            z-index: 50;
-            min-width: 200px;
+            opacity: 0;
+            transform: scale(0.95);
+            transform-origin: top right;
+            pointer-events: none;
+            transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
         }
-        .menu-dropdown.show { display: block; }
+        .menu-dropdown.show { 
+            opacity: 1; 
+            transform: scale(1);
+            pointer-events: auto;
+        }
+
+        /* Modal Scrim */
+        #modal-overlay.show { opacity: 1; pointer-events: auto; backdrop-filter: blur(2px); }
+        #modal-overlay { opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+        .m3-dialog { transform: scale(0.95); opacity: 0; transition: all 0.3s cubic-bezier(0.2, 0, 0, 1); }
+        .m3-dialog.show { transform: scale(1); opacity: 1; }
+
+        /* --- MATERIAL RIPPLE EFFECT --- */
+        .ripple-target {
+            position: relative;
+            overflow: hidden;
+            -webkit-tap-highlight-color: transparent;
+            cursor: pointer;
+        }
+        .ripple {
+            position: absolute;
+            border-radius: 50%;
+            transform: scale(0);
+            animation: ripple-anim 600ms linear;
+            background-color: currentColor;
+            opacity: 0.12;
+            pointer-events: none;
+        }
+        @keyframes ripple-anim {
+            to {
+                transform: scale(4);
+                opacity: 0;
+            }
+        }
     </style>
 </head>
-<body class="bg-white text-gray-800 font-sans antialiased min-h-screen">
+<body class="bg-surface text-on-surface font-sans antialiased min-h-screen selection:bg-primary-container selection:text-on-primary-container">
 
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         
         <!-- Search Section -->
         <div id="search-container" class="centered-search">
-            <div class="text-center mb-8" id="logo-container">
-                <i data-lucide="globe" class="w-16 h-16 mx-auto text-blue-600 mb-4"></i>
-                <h1 class="text-4xl md:text-5xl font-bold text-gray-900 tracking-tight font-serif">SuperInfo Wiki</h1>
-                <p class="mt-3 text-lg text-gray-500">The encyclopedic knowledge base generated by AI.</p>
+            <div class="text-center mb-10" id="logo-container">
+                <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary-container text-primary mb-6 shadow-sm">
+                    <i data-lucide="globe" class="w-10 h-10"></i>
+                </div>
+                <h1 class="text-4xl md:text-5xl font-normal text-on-surface tracking-tight mb-4">SuperInfo Wiki</h1>
+                <p class="text-lg text-on-surface-variant font-medium">The encyclopedic knowledge base generated by AI.</p>
             </div>
             
             <form id="search-form" class="max-w-2xl mx-auto w-full relative">
-                <div class="relative flex items-center">
-                    <i data-lucide="search" class="absolute left-4 text-gray-400 w-5 h-5"></i>
+                <div class="relative flex items-center bg-surface-container-high rounded-full h-16 hover:bg-surface-container-highest focus-within:bg-surface focus-within:shadow-m3-elevation-1 transition-all duration-300">
+                    <i data-lucide="search" class="absolute left-6 text-on-surface-variant w-6 h-6"></i>
                     <input 
                         type="text" 
                         id="search-input" 
                         placeholder="Search for any topic..." 
-                        class="w-full pl-12 pr-4 py-4 text-lg border border-gray-300 rounded-full shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow"
+                        class="w-full h-full pl-16 pr-32 text-lg bg-transparent text-on-surface placeholder-on-surface-variant outline-none rounded-full"
                         required
                     >
-                    <button type="submit" class="absolute right-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full font-medium transition-colors">
+                    <button type="submit" class="absolute right-2 bg-primary text-on-primary px-6 h-12 rounded-full font-medium tracking-wide ripple-target hover:bg-primary/90 transition-colors shadow-sm">
                         Read
                     </button>
                 </div>
@@ -86,57 +174,105 @@
         </div>
 
         <!-- Error Banner -->
-        <div id="error-banner" class="hidden bg-red-50 border-l-4 border-red-500 p-4 my-6 rounded-r-md">
-            <div class="flex">
-                <div class="flex-shrink-0"><i data-lucide="alert-circle" class="h-5 w-5 text-red-400"></i></div>
-                <div class="ml-3">
-                    <h3 class="text-sm font-medium text-red-800">Error</h3>
-                    <div class="mt-2 text-sm text-red-700"><p id="error-message"></p></div>
-                </div>
+        <div id="error-banner" class="hidden bg-error-container text-on-error-container p-5 my-6 rounded-3xl flex items-start shadow-sm transition-all duration-300">
+            <i data-lucide="alert-circle" class="h-6 w-6 mr-4 flex-shrink-0 mt-0.5"></i>
+            <div>
+                <h3 class="text-base font-medium">Error Encountered</h3>
+                <div class="mt-1 text-sm opacity-90"><p id="error-message"></p></div>
             </div>
         </div>
 
         <!-- Loading State -->
-        <div id="loading-state" class="hidden flex-col items-center justify-center py-20">
-            <div class="loader mb-6"></div>
-            <h2 id="loading-title" class="text-2xl font-semibold text-gray-700 font-serif">Searching...</h2>
-            <p id="loading-subtitle" class="text-gray-500 mt-2 text-center max-w-md"></p>
+        <div id="loading-state" class="hidden flex-col items-center justify-center py-32">
+            <div class="loader mb-8"></div>
+            <h2 id="loading-title" class="text-2xl font-normal text-on-surface mb-3">Searching...</h2>
+            <p id="loading-subtitle" class="text-on-surface-variant text-center max-w-md text-base leading-relaxed"></p>
         </div>
 
         <!-- Article Display Area -->
-        <div id="article-container" class="hidden pb-20 opacity-0 transition-opacity duration-500">
+        <div id="article-container" class="hidden pb-24 opacity-0 transition-opacity duration-700">
             
-            <div class="flex justify-between items-start mb-4">
+            <div class="flex justify-between items-start mb-6">
+                <!-- Badges / M3 Chips -->
                 <div class="flex flex-wrap gap-2" id="badge-container"></div>
                 
                 <!-- Kebab Menu -->
                 <div class="relative">
-                    <button id="menu-button" class="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                        <i data-lucide="more-vertical" class="w-6 h-6 text-gray-600"></i>
+                    <button id="menu-button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-surface-variant transition-colors text-on-surface-variant ripple-target outline-none focus:bg-surface-variant">
+                        <i data-lucide="more-vertical" class="w-6 h-6"></i>
                     </button>
-                    <div id="kebab-menu" class="menu-dropdown bg-white border border-gray-200 shadow-xl rounded-lg py-2 mt-1">
-                        <button id="update-btn" class="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center text-sm font-medium text-gray-700">
-                            <i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i> Request article update
+                    <!-- M3 Dropdown Menu -->
+                    <div id="kebab-menu" class="menu-dropdown absolute right-0 top-full mt-1 bg-surface-container shadow-m3-elevation-3 rounded-xl py-2 min-w-[220px] z-40">
+                        <button id="details-btn" class="w-full text-left px-4 py-3 hover:bg-surface-variant flex items-center text-sm font-medium text-on-surface ripple-target transition-colors">
+                            <i data-lucide="info" class="w-5 h-5 mr-3 text-on-surface-variant"></i> Article Details
                         </button>
-                        <button id="share-btn" class="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center text-sm text-gray-700">
-                            <i data-lucide="share-2" class="w-4 h-4 mr-2"></i> Copy link
+                        <button id="update-btn" class="w-full text-left px-4 py-3 hover:bg-surface-variant flex items-center text-sm font-medium text-on-surface ripple-target transition-colors">
+                            <i data-lucide="refresh-cw" class="w-5 h-5 mr-3 text-on-surface-variant"></i> Request Update
+                        </button>
+                        <button id="share-btn" class="w-full text-left px-4 py-3 hover:bg-surface-variant flex items-center text-sm font-medium text-on-surface ripple-target transition-colors">
+                            <i data-lucide="share-2" class="w-5 h-5 mr-3 text-on-surface-variant"></i> Copy Link
                         </button>
                     </div>
                 </div>
             </div>
             
-            <h1 id="article-title" class="text-4xl md:text-5xl font-bold font-serif text-gray-900 mb-8 border-b pb-4"></h1>
+            <h1 id="article-title" class="text-4xl md:text-[3.5rem] leading-tight font-normal text-on-surface mb-10"></h1>
             
-            <div id="article-content" class="markdown-body text-lg"></div>
+            <div id="article-content" class="markdown-body"></div>
             
-            <div class="mt-12 pt-6 border-t border-gray-200 text-sm text-gray-500 flex justify-between items-center">
-                <p id="footer-text">SuperInfo Knowledge Base</p>
-                <button onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="text-blue-600 hover:underline flex items-center">
-                    Back to top <i data-lucide="arrow-up" class="w-4 h-4 ml-1"></i>
+            <div class="mt-16 pt-8 border-t border-outline-variant text-sm text-on-surface-variant flex justify-between items-center">
+                <p id="footer-text" class="font-medium">SuperInfo Knowledge Base</p>
+                <button onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="text-primary hover:bg-primary-container px-4 py-2 rounded-full font-medium transition-colors flex items-center ripple-target">
+                    Back to top <i data-lucide="arrow-up" class="w-4 h-4 ml-2"></i>
                 </button>
             </div>
         </div>
+    </div>
 
+    <!-- Modals Overlay (M3 Scrim) -->
+    <div id="modal-overlay" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+        
+        <!-- Details Modal (M3 Dialog) -->
+        <div id="details-modal" class="hidden m3-dialog bg-surface-container-high rounded-4xl max-w-md w-full p-6 shadow-m3-elevation-3">
+            <h3 class="text-2xl font-normal mb-5 flex items-center text-on-surface">
+                <i data-lucide="info" class="w-6 h-6 mr-3 text-primary"></i> Article Details
+            </h3>
+            <div id="details-content" class="space-y-4 text-[15px] text-on-surface-variant">
+                <!-- Content injected via JS -->
+            </div>
+            <div class="mt-8 flex justify-end">
+                <!-- M3 Text Button -->
+                <button class="close-modal text-primary px-5 py-2.5 rounded-full font-medium hover:bg-primary/10 transition-colors ripple-target">Close</button>
+            </div>
+        </div>
+
+        <!-- Update Request Modal (M3 Dialog) -->
+        <div id="update-modal" class="hidden m3-dialog bg-surface-container-high rounded-4xl max-w-md w-full p-6 shadow-m3-elevation-3">
+            <h3 class="text-2xl font-normal mb-3 flex items-center text-on-surface">
+                <i data-lucide="refresh-cw" class="w-6 h-6 mr-3 text-primary"></i> Request Update
+            </h3>
+            <p class="text-[15px] text-on-surface-variant mb-6 leading-relaxed">What specific information is missing, incorrect, or needs to be changed? The AI will use this context to rebuild the article.</p>
+            
+            <!-- M3 Outlined Text Field -->
+            <div class="relative w-full mb-2">
+                <textarea 
+                    id="update-context" 
+                    rows="4" 
+                    class="peer w-full bg-surface border border-outline rounded text-on-surface p-4 pt-5 outline-none focus:border-primary focus:border-2 transition-all resize-none"
+                    placeholder=" "
+                ></textarea>
+                <label class="absolute text-on-surface-variant duration-300 transform -translate-y-4 scale-75 top-2 z-10 origin-[0] bg-surface px-2 peer-focus:px-2 peer-focus:text-primary peer-placeholder-shown:scale-100 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:top-6 peer-focus:top-2 peer-focus:scale-75 left-2">
+                    Additional Context (Optional)
+                </label>
+            </div>
+
+            <div class="mt-8 flex justify-end space-x-2">
+                <!-- M3 Text Button -->
+                <button class="close-modal text-primary px-5 py-2.5 rounded-full font-medium hover:bg-primary/10 transition-colors ripple-target">Cancel</button>
+                <!-- M3 Filled Button -->
+                <button id="submit-update-btn" class="bg-primary text-on-primary px-6 py-2.5 rounded-full font-medium hover:bg-primary/90 transition-colors shadow-sm ripple-target">Update</button>
+            </div>
+        </div>
     </div>
 
     <script type="module">
@@ -158,11 +294,36 @@
         const db = getFirestore(app);
         const vertexAI = getVertexAI(app);
         const model = getGenerativeModel(vertexAI, { 
-            model: "gemini-2.5-flash",
+            model: "gemini-2.5-pro",
             generationConfig: { responseMimeType: "application/json" } 
         }); 
         
         lucide.createIcons();
+
+        // Material 3 Ripple Logic
+        document.addEventListener('mousedown', function(e) {
+            let target = e.target.closest('.ripple-target');
+            if (!target) return;
+
+            const rect = target.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            const circle = document.createElement('span');
+            circle.classList.add('ripple');
+            circle.style.left = `${x}px`;
+            circle.style.top = `${y}px`;
+
+            const radius = Math.max(rect.width, rect.height);
+            circle.style.width = circle.style.height = `${radius}px`;
+            circle.style.marginLeft = circle.style.marginTop = `${-radius/2}px`;
+
+            target.appendChild(circle);
+
+            setTimeout(() => {
+                circle.remove();
+            }, 600);
+        });
 
         // UI State
         let currentArticle = { title: '', slug: '', content: '', tags: [] };
@@ -183,11 +344,20 @@
         const errorMessage = document.getElementById('error-message');
         const kebabMenu = document.getElementById('kebab-menu');
         const menuBtn = document.getElementById('menu-button');
+        
+        // Modal Elements
+        const modalOverlay = document.getElementById('modal-overlay');
+        const detailsModal = document.getElementById('details-modal');
+        const updateModal = document.getElementById('update-modal');
+        const detailsContent = document.getElementById('details-content');
+        const updateContextInput = document.getElementById('update-context');
+        const submitUpdateBtn = document.getElementById('submit-update-btn');
+        const detailsBtn = document.getElementById('details-btn');
 
         /**
          * Search and Navigation
          */
-        async function performSearch(query, updateHistory = true, forceUpdate = false) {
+        async function performSearch(query, updateHistory = true, forceUpdate = false, updateContext = "") {
             if (!query) return;
             const cleanQuery = query.trim();
             const slug = cleanQuery.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
@@ -203,7 +373,7 @@
             
             try {
                 if (!forceUpdate) {
-                    updateLoadingText("Searching Archive...", "Looking for existing documentation.");
+                    updateLoadingText("Searching Archive", "Looking for existing documentation in the knowledge base.");
                     const docSnap = await getDoc(doc(db, "articles", slug));
                     if (docSnap.exists()) {
                         const data = docSnap.data();
@@ -212,7 +382,7 @@
                     }
                 }
                 
-                await generateOrUpdateArticle(cleanQuery, slug, forceUpdate);
+                await generateOrUpdateArticle(cleanQuery, slug, forceUpdate, updateContext);
 
             } catch (error) {
                 showError(`Navigation Error: ${error.message}`);
@@ -222,12 +392,16 @@
         /**
          * Generation Logic (Creation or Update)
          */
-        async function generateOrUpdateArticle(query, slug, isUpdate = false) {
-            const task = isUpdate ? "Updating and Verifying" : "Generating";
-            updateLoadingText(`${task} Article...`, `Compiling comprehensive data for "${query}". Checking for the latest information and categorizing.`);
+        async function generateOrUpdateArticle(query, slug, isUpdate = false, updateContext = "") {
+            const task = isUpdate ? "Updating & Verifying" : "Generating";
+            let subtitle = `Compiling comprehensive data for "${query}". Checking for the latest information and categorizing.`;
+            if (isUpdate && updateContext) {
+                subtitle = `Applying requested updates to "${query}"...`;
+            }
+            updateLoadingText(task, subtitle);
             
             // System prompt for structured JSON return
-            const prompt = `You are a professional encyclopedia generator. Generate a JSON response for the topic: "${query}".
+            let prompt = `You are a professional encyclopedia generator. Generate a JSON response for the topic: "${query}".
             If this is an update request, specifically look for new developments or missing nuances compared to general knowledge.
             
             JSON structure:
@@ -239,6 +413,11 @@
             
             Tags should include topic type (e.g., "Scientific", "Biography") and status (e.g., "Rapidly Changing", "Stable", "Historically Significant").
             Always include "Newly Generated" or "Recently Updated" in tags.`;
+
+            // Inject the user's specific context if provided
+            if (isUpdate && updateContext) {
+                prompt += `\n\nCRITICAL UPDATE INSTRUCTIONS: The user explicitly requested the following updates, additions, or focus areas: "${updateContext}". Ensure the newly generated article directly addresses and incorporates this information prominently.`;
+            }
 
             try {
                 const result = await model.generateContent(prompt);
@@ -271,20 +450,20 @@
             
             badgeContainer.innerHTML = '';
             
-            // Base Source Badge
+            // Base Source Badge mapped to M3 Tonal Colors
             const sourceInfo = {
-                cache: { color: 'bg-green-100 text-green-800', icon: 'database', text: 'Verified Record' },
-                ai: { color: 'bg-purple-100 text-purple-800', icon: 'sparkles', text: 'AI Generated' },
-                update: { color: 'bg-blue-100 text-blue-800', icon: 'refresh-cw', text: 'Recently Updated' }
+                cache: { color: 'bg-secondary-container text-on-secondary-container', icon: 'database', text: 'Verified Record' },
+                ai: { color: 'bg-tertiary-container text-on-tertiary-container', icon: 'sparkles', text: 'AI Generated' },
+                update: { color: 'bg-primary-container text-on-primary-container', icon: 'refresh-cw', text: 'Recently Updated' }
             }[source];
 
             addBadge(sourceInfo.text, sourceInfo.color, sourceInfo.icon);
 
-            // AI Generated Tags
+            // AI Generated Tags styling via M3 Outline Chips
             tags.forEach(tag => {
-                let color = 'bg-gray-100 text-gray-700';
-                if (tag.toLowerCase().includes('rapidly')) color = 'bg-orange-100 text-orange-800';
-                if (tag.toLowerCase().includes('scientific')) color = 'bg-cyan-100 text-cyan-800';
+                let color = 'border border-outline text-on-surface-variant';
+                if (tag.toLowerCase().includes('rapidly')) color = 'border-error text-error';
+                if (tag.toLowerCase().includes('scientific')) color = 'border-primary text-primary';
                 addBadge(tag, color, 'tag');
             });
             
@@ -296,10 +475,11 @@
             articleContainer.classList.add('opacity-100');
         }
 
+        // M3 Chip component implementation
         function addBadge(text, color, icon) {
             const span = document.createElement('span');
-            span.className = `inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${color}`;
-            span.innerHTML = `<i data-lucide="${icon}" class="w-3 h-3 mr-1"></i> ${text}`;
+            span.className = `inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium ${color}`;
+            span.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 mr-2 opacity-80"></i> ${text}`;
             badgeContainer.appendChild(span);
         }
 
@@ -325,33 +505,108 @@
             loadingState.classList.remove('hidden');
             loadingState.classList.add('flex');
             kebabMenu.classList.remove('show');
+            closeModal();
         }
 
         /**
-         * Events
+         * Modals & Kebab Menu Events
          */
-        searchForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            performSearch(searchInput.value);
+        function openModal(modalId) {
+            modalOverlay.classList.remove('hidden');
+            // Small delay to allow display:block to apply before opacity transition
+            setTimeout(() => {
+                modalOverlay.classList.add('show');
+                detailsModal.classList.add('hidden');
+                updateModal.classList.add('hidden');
+                
+                const targetModal = document.getElementById(modalId);
+                targetModal.classList.remove('hidden');
+                setTimeout(() => targetModal.classList.add('show'), 10);
+            }, 10);
+            
+            kebabMenu.classList.remove('show');
+        }
+
+        function closeModal() {
+            modalOverlay.classList.remove('show');
+            document.querySelectorAll('.m3-dialog').forEach(m => m.classList.remove('show'));
+            
+            setTimeout(() => {
+                modalOverlay.classList.add('hidden');
+                updateContextInput.value = '';
+            }, 300); // match transition duration
+        }
+
+        // Close modal when clicking the close buttons or outside the modal box
+        document.querySelectorAll('.close-modal').forEach(btn => {
+            btn.addEventListener('click', closeModal);
+        });
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) closeModal();
         });
 
+        // Kebab toggle
         menuBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             kebabMenu.classList.toggle('show');
         });
 
-        document.getElementById('update-btn').addEventListener('click', () => {
-            const query = new URLSearchParams(window.location.search).get('article');
-            if (query) performSearch(query, false, true);
+        // Global click to close kebab menu
+        document.addEventListener('click', () => kebabMenu.classList.remove('show'));
+
+        // Details Logic
+        detailsBtn.addEventListener('click', () => {
+            const wordCount = currentArticle.content ? currentArticle.content.trim().split(/\s+/).length : 0;
+            const readingTime = Math.ceil(wordCount / 200); // avg 200 words per min
+            
+            detailsContent.innerHTML = `
+                <div class="grid grid-cols-3 gap-2 border-b border-surface-variant pb-3">
+                    <span class="font-medium text-on-surface-variant col-span-1">Title</span>
+                    <span class="col-span-2 text-on-surface">${currentArticle.title}</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2 border-b border-surface-variant py-3">
+                    <span class="font-medium text-on-surface-variant col-span-1">Tags</span>
+                    <span class="col-span-2 text-on-surface">${currentArticle.tags.join(', ') || 'None'}</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2 border-b border-surface-variant py-3">
+                    <span class="font-medium text-on-surface-variant col-span-1">Word Count</span>
+                    <span class="col-span-2 text-on-surface">${wordCount.toLocaleString()} words</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2 pt-3">
+                    <span class="font-medium text-on-surface-variant col-span-1">Read Time</span>
+                    <span class="col-span-2 text-on-surface">~${readingTime} min</span>
+                </div>
+            `;
+            openModal('details-modal');
         });
 
+        // Update Request Logic
+        document.getElementById('update-btn').addEventListener('click', () => {
+            openModal('update-modal');
+            setTimeout(() => updateContextInput.focus(), 300);
+        });
+
+        submitUpdateBtn.addEventListener('click', () => {
+            const query = new URLSearchParams(window.location.search).get('article');
+            const context = updateContextInput.value.trim();
+            closeModal();
+            if (query) performSearch(query, false, true, context);
+        });
+
+        // Share Logic
         document.getElementById('share-btn').addEventListener('click', () => {
             navigator.clipboard.writeText(window.location.href);
             kebabMenu.classList.remove('show');
-            // Mini toast logic could go here
+            alert("Link copied to clipboard!"); 
         });
 
-        document.addEventListener('click', () => kebabMenu.classList.remove('show'));
+        /**
+         * Global Events
+         */
+        searchForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            performSearch(searchInput.value);
+        });
 
         window.addEventListener('popstate', () => {
             const article = new URLSearchParams(window.location.search).get('article');
