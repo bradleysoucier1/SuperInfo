@@ -114,7 +114,7 @@
 
         /* Modal Scrim */
         #modal-overlay.show { opacity: 1; pointer-events: auto; backdrop-filter: blur(2px); }
-        #modal-overlay { opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+        #modal-overlay { opacity: 0; pointer-events: none; transition: opacity 0.3s ease; background-color: rgba(0,0,0,0.4); }
         .m3-dialog { transform: scale(0.95); opacity: 0; transition: all 0.3s cubic-bezier(0.2, 0, 0, 1); }
         .m3-dialog.show { transform: scale(1); opacity: 1; }
 
@@ -202,12 +202,15 @@
                         <i data-lucide="more-vertical" class="w-6 h-6"></i>
                     </button>
                     <!-- M3 Dropdown Menu -->
-                    <div id="kebab-menu" class="menu-dropdown absolute right-0 top-full mt-1 bg-surface-container shadow-m3-elevation-3 rounded-xl py-2 min-w-[220px] z-40">
+                    <div id="kebab-menu" class="menu-dropdown absolute right-0 top-full mt-1 bg-surface-container shadow-m3-elevation-3 rounded-xl py-2 min-w-[220px] z-40 border border-outline-variant/30">
                         <button id="details-btn" class="w-full text-left px-4 py-3 hover:bg-surface-variant flex items-center text-sm font-medium text-on-surface ripple-target transition-colors">
                             <i data-lucide="info" class="w-5 h-5 mr-3 text-on-surface-variant"></i> Article Details
                         </button>
+                        <button id="edit-btn" class="w-full text-left px-4 py-3 hover:bg-surface-variant flex items-center text-sm font-medium text-on-surface ripple-target transition-colors">
+                            <i data-lucide="edit-3" class="w-5 h-5 mr-3 text-on-surface-variant"></i> Manual Edit
+                        </button>
                         <button id="update-btn" class="w-full text-left px-4 py-3 hover:bg-surface-variant flex items-center text-sm font-medium text-on-surface ripple-target transition-colors">
-                            <i data-lucide="refresh-cw" class="w-5 h-5 mr-3 text-on-surface-variant"></i> Request Update
+                            <i data-lucide="refresh-cw" class="w-5 h-5 mr-3 text-on-surface-variant"></i> Request AI Update
                         </button>
                         <button id="share-btn" class="w-full text-left px-4 py-3 hover:bg-surface-variant flex items-center text-sm font-medium text-on-surface ripple-target transition-colors">
                             <i data-lucide="share-2" class="w-5 h-5 mr-3 text-on-surface-variant"></i> Copy Link
@@ -230,7 +233,7 @@
     </div>
 
     <!-- Modals Overlay (M3 Scrim) -->
-    <div id="modal-overlay" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+    <div id="modal-overlay" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
         
         <!-- Details Modal (M3 Dialog) -->
         <div id="details-modal" class="hidden m3-dialog bg-surface-container-high rounded-4xl max-w-md w-full p-6 shadow-m3-elevation-3">
@@ -241,19 +244,17 @@
                 <!-- Content injected via JS -->
             </div>
             <div class="mt-8 flex justify-end">
-                <!-- M3 Text Button -->
                 <button class="close-modal text-primary px-5 py-2.5 rounded-full font-medium hover:bg-primary/10 transition-colors ripple-target">Close</button>
             </div>
         </div>
 
-        <!-- Update Request Modal (M3 Dialog) -->
+        <!-- AI Update Request Modal (M3 Dialog) -->
         <div id="update-modal" class="hidden m3-dialog bg-surface-container-high rounded-4xl max-w-md w-full p-6 shadow-m3-elevation-3">
             <h3 class="text-2xl font-normal mb-3 flex items-center text-on-surface">
-                <i data-lucide="refresh-cw" class="w-6 h-6 mr-3 text-primary"></i> Request Update
+                <i data-lucide="refresh-cw" class="w-6 h-6 mr-3 text-primary"></i> AI Update
             </h3>
-            <p class="text-[15px] text-on-surface-variant mb-6 leading-relaxed">What specific information is missing, incorrect, or needs to be changed? The AI will use this context to rebuild the article.</p>
+            <p class="text-[15px] text-on-surface-variant mb-6 leading-relaxed">What should the AI change? Describe missing info or corrections.</p>
             
-            <!-- M3 Outlined Text Field -->
             <div class="relative w-full mb-2">
                 <textarea 
                     id="update-context" 
@@ -262,15 +263,34 @@
                     placeholder=" "
                 ></textarea>
                 <label class="absolute text-on-surface-variant duration-300 transform -translate-y-4 scale-75 top-2 z-10 origin-[0] bg-surface px-2 peer-focus:px-2 peer-focus:text-primary peer-placeholder-shown:scale-100 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:top-6 peer-focus:top-2 peer-focus:scale-75 left-2">
-                    Additional Context (Optional)
+                    Instructions for AI
                 </label>
             </div>
 
             <div class="mt-8 flex justify-end space-x-2">
-                <!-- M3 Text Button -->
                 <button class="close-modal text-primary px-5 py-2.5 rounded-full font-medium hover:bg-primary/10 transition-colors ripple-target">Cancel</button>
-                <!-- M3 Filled Button -->
-                <button id="submit-update-btn" class="bg-primary text-on-primary px-6 py-2.5 rounded-full font-medium hover:bg-primary/90 transition-colors shadow-sm ripple-target">Update</button>
+                <button id="submit-update-btn" class="bg-primary text-on-primary px-6 py-2.5 rounded-full font-medium hover:bg-primary/90 transition-colors shadow-sm ripple-target">Regenerate</button>
+            </div>
+        </div>
+
+        <!-- Manual Edit Modal (M3 Dialog - Wide) -->
+        <div id="edit-modal" class="hidden m3-dialog bg-surface-container-high rounded-4xl max-w-2xl w-full p-6 shadow-m3-elevation-3">
+            <h3 class="text-2xl font-normal mb-3 flex items-center text-on-surface">
+                <i data-lucide="edit-3" class="w-6 h-6 mr-3 text-primary"></i> Manual Edit
+            </h3>
+            <p class="text-[15px] text-on-surface-variant mb-4">Editing Markdown source for <strong><span id="edit-article-title"></span></strong>.</p>
+            
+            <div class="relative w-full mb-2">
+                <textarea 
+                    id="manual-edit-content" 
+                    rows="15" 
+                    class="w-full bg-surface border border-outline rounded text-on-surface p-4 font-mono text-sm outline-none focus:border-primary focus:border-2 transition-all resize-none overflow-y-auto"
+                ></textarea>
+            </div>
+
+            <div class="mt-6 flex justify-end space-x-2">
+                <button class="close-modal text-primary px-5 py-2.5 rounded-full font-medium hover:bg-primary/10 transition-colors ripple-target">Discard</button>
+                <button id="save-edit-btn" class="bg-primary text-on-primary px-6 py-2.5 rounded-full font-medium hover:bg-primary/90 transition-colors shadow-sm ripple-target">Save Changes</button>
             </div>
         </div>
     </div>
@@ -300,31 +320,6 @@
         
         lucide.createIcons();
 
-        // Material 3 Ripple Logic
-        document.addEventListener('mousedown', function(e) {
-            let target = e.target.closest('.ripple-target');
-            if (!target) return;
-
-            const rect = target.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-
-            const circle = document.createElement('span');
-            circle.classList.add('ripple');
-            circle.style.left = `${x}px`;
-            circle.style.top = `${y}px`;
-
-            const radius = Math.max(rect.width, rect.height);
-            circle.style.width = circle.style.height = `${radius}px`;
-            circle.style.marginLeft = circle.style.marginTop = `${-radius/2}px`;
-
-            target.appendChild(circle);
-
-            setTimeout(() => {
-                circle.remove();
-            }, 600);
-        });
-
         // UI State
         let currentArticle = { title: '', slug: '', content: '', tags: [] };
 
@@ -345,14 +340,14 @@
         const kebabMenu = document.getElementById('kebab-menu');
         const menuBtn = document.getElementById('menu-button');
         
-        // Modal Elements
         const modalOverlay = document.getElementById('modal-overlay');
         const detailsModal = document.getElementById('details-modal');
         const updateModal = document.getElementById('update-modal');
+        const editModal = document.getElementById('edit-modal');
         const detailsContent = document.getElementById('details-content');
         const updateContextInput = document.getElementById('update-context');
-        const submitUpdateBtn = document.getElementById('submit-update-btn');
-        const detailsBtn = document.getElementById('details-btn');
+        const manualEditArea = document.getElementById('manual-edit-content');
+        const editArticleTitleLabel = document.getElementById('edit-article-title');
 
         /**
          * Search and Navigation
@@ -373,7 +368,7 @@
             
             try {
                 if (!forceUpdate) {
-                    updateLoadingText("Searching Archive", "Looking for existing documentation in the knowledge base.");
+                    updateLoadingText("Searching Archive", "Checking knowledge base for existing records.");
                     const docSnap = await getDoc(doc(db, "articles", slug));
                     if (docSnap.exists()) {
                         const data = docSnap.data();
@@ -381,48 +376,32 @@
                         return;
                     }
                 }
-                
                 await generateOrUpdateArticle(cleanQuery, slug, forceUpdate, updateContext);
-
             } catch (error) {
-                showError(`Navigation Error: ${error.message}`);
+                showError(`Error: ${error.message}`);
             }
         }
 
-        /**
-         * Generation Logic (Creation or Update)
-         */
         async function generateOrUpdateArticle(query, slug, isUpdate = false, updateContext = "") {
-            const task = isUpdate ? "Updating & Verifying" : "Generating";
-            let subtitle = `Compiling comprehensive data for "${query}". Checking for the latest information and categorizing.`;
+            const task = isUpdate ? "Rebuilding Article" : "Synthesizing Knowledge";
+            let subtitle = `Compiling verified data for "${query}". Cross-referencing sources and formatting documentation.`;
             if (isUpdate && updateContext) {
-                subtitle = `Applying requested updates to "${query}"...`;
+                subtitle = `Applying specific improvements based on your instructions...`;
             }
             updateLoadingText(task, subtitle);
             
-            // System prompt for structured JSON return
             let prompt = `You are a professional encyclopedia generator. Generate a JSON response for the topic: "${query}".
-            If this is an update request, specifically look for new developments or missing nuances compared to general knowledge.
-            
-            JSON structure:
-            {
-              "title": "Clean version of the title",
-              "content": "Full markdown content. Use Wikipedia style. Include internal links as [Topic](?article=Topic).",
-              "tags": ["Tag1", "Tag2"]
-            }
-            
-            Tags should include topic type (e.g., "Scientific", "Biography") and status (e.g., "Rapidly Changing", "Stable", "Historically Significant").
-            Always include "Newly Generated" or "Recently Updated" in tags.`;
+            JSON structure: { "title": "string", "content": "markdown string", "tags": ["tag1", "tag2"] }.
+            Tags should include topic category and status like "Stable" or "Rapidly Evolving".
+            Always include "AI Generated" or "Verified Summary" in tags.`;
 
-            // Inject the user's specific context if provided
             if (isUpdate && updateContext) {
-                prompt += `\n\nCRITICAL UPDATE INSTRUCTIONS: The user explicitly requested the following updates, additions, or focus areas: "${updateContext}". Ensure the newly generated article directly addresses and incorporates this information prominently.`;
+                prompt += `\n\nUSER REQUEST: "${updateContext}". Integrate this specific information precisely.`;
             }
 
             try {
                 const result = await model.generateContent(prompt);
-                const responseText = result.response.text();
-                const data = JSON.parse(responseText);
+                const data = JSON.parse(result.response.text());
                 
                 await setDoc(doc(db, "articles", slug), {
                     ...data,
@@ -432,25 +411,21 @@
 
                 renderArticle(data.title, data.content, isUpdate ? "update" : "ai", data.tags);
             } catch (err) {
-                throw new Error("AI Processing failed: " + err.message);
+                throw new Error("AI Generation failed: " + err.message);
             }
         }
 
-        /**
-         * Render Logic
-         */
         function renderArticle(title, markdown, source, tags = []) {
-            currentArticle = { title, content: markdown, tags };
+            const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+            currentArticle = { title, content: markdown, tags, slug };
             
             loadingState.classList.add('hidden');
             loadingState.classList.remove('flex');
             
             articleTitle.innerText = title;
             articleContent.innerHTML = marked.parse(markdown);
-            
             badgeContainer.innerHTML = '';
             
-            // Base Source Badge mapped to M3 Tonal Colors
             const sourceInfo = {
                 cache: { color: 'bg-secondary-container text-on-secondary-container', icon: 'database', text: 'Verified Record' },
                 ai: { color: 'bg-tertiary-container text-on-tertiary-container', icon: 'sparkles', text: 'AI Generated' },
@@ -458,24 +433,15 @@
             }[source];
 
             addBadge(sourceInfo.text, sourceInfo.color, sourceInfo.icon);
-
-            // AI Generated Tags styling via M3 Outline Chips
-            tags.forEach(tag => {
-                let color = 'border border-outline text-on-surface-variant';
-                if (tag.toLowerCase().includes('rapidly')) color = 'border-error text-error';
-                if (tag.toLowerCase().includes('scientific')) color = 'border-primary text-primary';
-                addBadge(tag, color, 'tag');
-            });
+            tags.forEach(tag => addBadge(tag, 'border border-outline text-on-surface-variant', 'tag'));
             
             lucide.createIcons();
             interceptLinks();
 
             articleContainer.classList.remove('hidden');
-            void articleContainer.offsetWidth; 
-            articleContainer.classList.add('opacity-100');
+            setTimeout(() => articleContainer.classList.add('opacity-100'), 50);
         }
 
-        // M3 Chip component implementation
         function addBadge(text, color, icon) {
             const span = document.createElement('span');
             span.className = `inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium ${color}`;
@@ -513,81 +479,81 @@
          */
         function openModal(modalId) {
             modalOverlay.classList.remove('hidden');
-            // Small delay to allow display:block to apply before opacity transition
             setTimeout(() => {
                 modalOverlay.classList.add('show');
                 detailsModal.classList.add('hidden');
                 updateModal.classList.add('hidden');
+                editModal.classList.add('hidden');
                 
                 const targetModal = document.getElementById(modalId);
                 targetModal.classList.remove('hidden');
                 setTimeout(() => targetModal.classList.add('show'), 10);
             }, 10);
-            
             kebabMenu.classList.remove('show');
         }
 
         function closeModal() {
             modalOverlay.classList.remove('show');
             document.querySelectorAll('.m3-dialog').forEach(m => m.classList.remove('show'));
-            
-            setTimeout(() => {
-                modalOverlay.classList.add('hidden');
-                updateContextInput.value = '';
-            }, 300); // match transition duration
+            setTimeout(() => modalOverlay.classList.add('hidden'), 300);
         }
 
-        // Close modal when clicking the close buttons or outside the modal box
-        document.querySelectorAll('.close-modal').forEach(btn => {
-            btn.addEventListener('click', closeModal);
-        });
-        modalOverlay.addEventListener('click', (e) => {
-            if (e.target === modalOverlay) closeModal();
-        });
+        document.querySelectorAll('.close-modal').forEach(btn => btn.addEventListener('click', closeModal));
+        modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
 
-        // Kebab toggle
         menuBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             kebabMenu.classList.toggle('show');
         });
-
-        // Global click to close kebab menu
         document.addEventListener('click', () => kebabMenu.classList.remove('show'));
 
         // Details Logic
-        detailsBtn.addEventListener('click', () => {
+        document.getElementById('details-btn').addEventListener('click', () => {
             const wordCount = currentArticle.content ? currentArticle.content.trim().split(/\s+/).length : 0;
-            const readingTime = Math.ceil(wordCount / 200); // avg 200 words per min
-            
             detailsContent.innerHTML = `
-                <div class="grid grid-cols-3 gap-2 border-b border-surface-variant pb-3">
-                    <span class="font-medium text-on-surface-variant col-span-1">Title</span>
-                    <span class="col-span-2 text-on-surface">${currentArticle.title}</span>
-                </div>
-                <div class="grid grid-cols-3 gap-2 border-b border-surface-variant py-3">
-                    <span class="font-medium text-on-surface-variant col-span-1">Tags</span>
-                    <span class="col-span-2 text-on-surface">${currentArticle.tags.join(', ') || 'None'}</span>
-                </div>
-                <div class="grid grid-cols-3 gap-2 border-b border-surface-variant py-3">
-                    <span class="font-medium text-on-surface-variant col-span-1">Word Count</span>
-                    <span class="col-span-2 text-on-surface">${wordCount.toLocaleString()} words</span>
-                </div>
-                <div class="grid grid-cols-3 gap-2 pt-3">
-                    <span class="font-medium text-on-surface-variant col-span-1">Read Time</span>
-                    <span class="col-span-2 text-on-surface">~${readingTime} min</span>
-                </div>
-            `;
+                <div class="space-y-3">
+                    <div class="flex flex-col"><span class="text-xs uppercase font-bold tracking-wider opacity-60">Title</span><span>${currentArticle.title}</span></div>
+                    <div class="flex flex-col"><span class="text-xs uppercase font-bold tracking-wider opacity-60">Words</span><span>${wordCount.toLocaleString()}</span></div>
+                    <div class="flex flex-col"><span class="text-xs uppercase font-bold tracking-wider opacity-60">Tags</span><span class="flex flex-wrap gap-1 mt-1">${currentArticle.tags.map(t => `<span class='px-2 py-0.5 bg-surface-variant rounded text-xs'>${t}</span>`).join('')}</span></div>
+                </div>`;
             openModal('details-modal');
         });
 
-        // Update Request Logic
-        document.getElementById('update-btn').addEventListener('click', () => {
-            openModal('update-modal');
-            setTimeout(() => updateContextInput.focus(), 300);
+        // Manual Edit Logic
+        document.getElementById('edit-btn').addEventListener('click', () => {
+            editArticleTitleLabel.innerText = currentArticle.title;
+            manualEditArea.value = currentArticle.content;
+            openModal('edit-modal');
+            setTimeout(() => manualEditArea.focus(), 350);
         });
 
-        submitUpdateBtn.addEventListener('click', () => {
-            const query = new URLSearchParams(window.location.search).get('article');
+        document.getElementById('save-edit-btn').addEventListener('click', async () => {
+            const newContent = manualEditArea.value;
+            const slug = currentArticle.slug;
+            
+            // Optimistic UI
+            closeModal();
+            updateLoadingText("Saving Changes", "Writing your edits to the knowledge base record.");
+            loadingState.classList.remove('hidden');
+            articleContainer.classList.add('hidden');
+
+            try {
+                await setDoc(doc(db, "articles", slug), {
+                    ...currentArticle,
+                    content: newContent,
+                    updatedAt: serverTimestamp()
+                }, { merge: true });
+                
+                renderArticle(currentArticle.title, newContent, "cache", currentArticle.tags);
+            } catch (err) {
+                showError("Save failed: " + err.message);
+            }
+        });
+
+        // AI Update Logic
+        document.getElementById('update-btn').addEventListener('click', () => openModal('update-modal'));
+        document.getElementById('submit-update-btn').addEventListener('click', () => {
+            const query = currentArticle.title;
             const context = updateContextInput.value.trim();
             closeModal();
             if (query) performSearch(query, false, true, context);
@@ -595,14 +561,16 @@
 
         // Share Logic
         document.getElementById('share-btn').addEventListener('click', () => {
+            document.execCommand('copy'); // Fallback for iFrame
             navigator.clipboard.writeText(window.location.href);
             kebabMenu.classList.remove('show');
-            alert("Link copied to clipboard!"); 
+            const toast = document.createElement('div');
+            toast.className = 'fixed bottom-8 left-1/2 -translate-x-1/2 bg-on-surface text-surface px-6 py-3 rounded-full text-sm font-medium z-[100] shadow-m3-elevation-3';
+            toast.innerText = 'Link copied to clipboard';
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2500);
         });
 
-        /**
-         * Global Events
-         */
         searchForm.addEventListener('submit', (e) => {
             e.preventDefault();
             performSearch(searchInput.value);
@@ -626,10 +594,27 @@
 
         function showError(msg) {
             loadingState.classList.add('hidden');
-            loadingState.classList.remove('flex');
             errorMessage.innerText = msg;
             errorBanner.classList.remove('hidden');
         }
+
+        // Material 3 Ripple Logic
+        document.addEventListener('mousedown', function(e) {
+            let target = e.target.closest('.ripple-target');
+            if (!target) return;
+            const rect = target.getBoundingClientRect();
+            const circle = document.createElement('span');
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            circle.classList.add('ripple');
+            circle.style.left = `${x}px`;
+            circle.style.top = `${y}px`;
+            const radius = Math.max(rect.width, rect.height);
+            circle.style.width = circle.style.height = `${radius}px`;
+            circle.style.marginLeft = circle.style.marginTop = `${-radius/2}px`;
+            target.appendChild(circle);
+            setTimeout(() => circle.remove(), 600);
+        });
     </script>
 </body>
 </html>
