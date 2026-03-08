@@ -75,7 +75,7 @@
             </form>
         </div>
 
-        <!-- Error Banner (Replacing alert()) -->
+        <!-- Error Banner -->
         <div id="error-banner" class="hidden bg-red-50 border-l-4 border-red-500 p-4 my-6 rounded-r-md">
             <div class="flex">
                 <div class="flex-shrink-0">
@@ -109,7 +109,7 @@
             <div id="article-content" class="markdown-body text-lg"></div>
             
             <div class="mt-12 pt-6 border-t border-gray-200 text-sm text-gray-500 flex justify-between items-center">
-                <p>Powered by Gemini AI & Firebase</p>
+                <p>Powered by Vertex AI in Firebase</p>
                 <button onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="text-blue-600 hover:underline flex items-center">
                     Back to top <i data-lucide="arrow-up" class="w-4 h-4 ml-1"></i>
                 </button>
@@ -120,9 +120,12 @@
 
     <!-- Application Logic -->
     <script type="module">
-        // 1. Firebase Initialization via Standard CDN modules
+        // Import standard Firebase app & Firestore
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // Import Firebase Vertex AI SDK
+        import { getVertexAI, getGenerativeModel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-vertexai.js";
 
         // Your provided Firebase Configuration
         const firebaseConfig = {
@@ -135,16 +138,17 @@
             measurementId: "G-3842263MML"
         };
 
-        let db = null;
-        try {
-            const app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-        } catch (e) {
-            console.error("Firebase init failed:", e);
-        }
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        
+        // Initialize Firestore
+        const db = getFirestore(app);
 
-        // Gemini API configuration
-        const apiKey = ""; 
+        // Initialize the Vertex AI service and the Generative Model
+        const vertexAI = getVertexAI(app);
+        
+        // Using the model you specifically requested
+        const model = getGenerativeModel(vertexAI, { model: "gemini-3-flash-preview" }); 
         
         // Initialize Lucide icons
         lucide.createIcons();
@@ -180,7 +184,7 @@
             loadingState.classList.remove('hidden');
             loadingState.classList.add('flex');
             
-            // Create a URL-friendly slug 
+            // Create a URL-friendly slug (e.g. "Eiffel Tower" -> "eiffel-tower")
             const slug = query.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
 
             try {
@@ -188,20 +192,18 @@
                 updateLoadingText("Searching Knowledge Base...", "Checking database for existing articles.");
                 
                 let existingData = null;
-                
-                if (db) {
-                    try {
-                        const docRef = doc(db, "articles", slug);
-                        const docSnap = await getDoc(docRef);
-                        if (docSnap.exists()) {
-                            existingData = docSnap.data();
-                        }
-                    } catch (dbError) {
-                        console.warn("Firestore read bypass (continuing to AI generation):", dbError.message);
+                try {
+                    const docRef = doc(db, "articles", slug);
+                    const docSnap = await getDoc(docRef);
+                    if (docSnap.exists()) {
+                        existingData = docSnap.data();
                     }
+                } catch (dbError) {
+                    // If Firestore fails (e.g., security rules), log it but proceed to generate a new article
+                    console.warn("Firestore read bypassed:", dbError.message);
                 }
 
-                // STEP 2: Render existing OR generate new
+                // STEP 2: Render existing OR generate new via Vertex AI
                 if (existingData && existingData.content) {
                     renderArticle(existingData.title || query, existingData.content, "cache");
                 } else {
@@ -210,75 +212,50 @@
 
             } catch (error) {
                 console.error("Application error:", error);
-                showError(`Failed to fetch article: ${error.message || 'Unknown error occurred'}`);
+                showError(`Failed to fetch article: ${error.message}`);
             }
         });
 
-        // Exponential backoff fetch for Gemini API
-        async function generateWithGemini(query) {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-            
-            const payload = {
-                contents: [{ parts: [{ text: query }] }],
-                systemInstruction: { 
-                    parts: [{ text: "You are an expert encyclopedic AI. Write a highly detailed, neutral, and comprehensive Wikipedia-style article about the user's topic. Format the response entirely in Markdown. Do NOT include the main Title/H1 at the very top. Include standard Wikipedia sections where applicable such as: An introductory summary, History, Core Mechanisms, Impact, and See Also. Ensure the tone is objective and informative." }] 
-                }
-            };
-
-            const delays = [1000, 2000, 4000, 8000, 16000];
-            let lastError = null;
-
-            for (let i = 0; i < 5; i++) {
-                try {
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    
-                    if (!response.ok) {
-                        const errTxt = await response.text();
-                        throw new Error(`API Error ${response.status}: ${errTxt}`);
-                    }
-                    
-                    const data = await response.json();
-                    
-                    // Safely extract the text response
-                    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-                    if (!text) throw new Error("Empty response received from AI.");
-                    
-                    return text;
-                    
-                } catch (error) {
-                    lastError = error;
-                    // Wait before retrying
-                    if (i < 4) await new Promise(r => setTimeout(r, delays[i]));
-                }
-            }
-            throw lastError; // Throw the last error if all 5 retries fail
-        }
-
-        // Function to generate new article
+        // Function to generate new article using Vertex AI
         async function generateNewArticle(query, slug) {
             updateLoadingText("Generating AI Article...", `Writing a comprehensive Wikipedia page for "${query}". This may take a few seconds.`);
             
-            const markdownContent = await generateWithGemini(query);
+            const prompt = `You are an expert encyclopedic AI. Write a highly detailed, neutral, and comprehensive Wikipedia-style article about "${query}". 
+            Format the response entirely in Markdown. 
+            Do NOT include the main Title/H1 at the very top (I will provide that).
+            Include standard Wikipedia sections where applicable, such as:
+            - An introductory summary paragraph
+            - History / Origins
+            - Core Mechanisms / Key Concepts
+            - Impact / Applications
+            - See Also
+            Ensure the tone is objective and informative.`;
 
-            // Save to Firestore so the next user gets the cached version
-            if (db) {
-                try {
-                    const docRef = doc(db, "articles", slug);
-                    await setDoc(docRef, {
-                        title: query,
-                        content: markdownContent,
-                        createdAt: serverTimestamp()
-                    });
-                } catch (dbError) {
-                    console.warn("Firestore write bypass (article generated but not saved):", dbError.message);
-                }
+            let markdownContent = "";
+
+            try {
+                // Generate content using Firebase Vertex AI
+                const result = await model.generateContent(prompt);
+                markdownContent = result.response.text();
+                
+                if (!markdownContent) throw new Error("Received empty response from AI model.");
+            } catch (aiError) {
+                throw new Error("Vertex AI Generation failed: " + aiError.message);
             }
 
-            // Render
+            // Save the newly generated content to Firestore
+            try {
+                const docRef = doc(db, "articles", slug);
+                await setDoc(docRef, {
+                    title: query,
+                    content: markdownContent,
+                    createdAt: serverTimestamp()
+                });
+            } catch (dbError) {
+                console.warn("Firestore write bypassed (article generated but not saved to cache):", dbError.message);
+            }
+
+            // Render the AI result
             renderArticle(query, markdownContent, "ai");
         }
 
@@ -290,7 +267,7 @@
             articleTitle.innerText = title;
             articleContent.innerHTML = marked.parse(markdown);
             
-            // Set Badges
+            // Set Badges to show where the data came from
             badgeContainer.innerHTML = '';
             if (source === 'cache') {
                 badgeContainer.innerHTML = `
