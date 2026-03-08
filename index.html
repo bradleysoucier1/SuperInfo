@@ -15,7 +15,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        /* Custom typography styles to mimic Wikipedia a bit */
+        /* Custom typography styles to mimic Wikipedia */
         .markdown-body h1 { font-size: 2.25rem; font-weight: 700; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; margin-top: 2rem; margin-bottom: 1rem; font-family: Georgia, serif; }
         .markdown-body h2 { font-size: 1.75rem; font-weight: 600; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.25rem; margin-top: 1.75rem; margin-bottom: 1rem; font-family: Georgia, serif; }
         .markdown-body h3 { font-size: 1.25rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.75rem; }
@@ -75,18 +75,33 @@
             </form>
         </div>
 
+        <!-- Error Banner (Replacing alert()) -->
+        <div id="error-banner" class="hidden bg-red-50 border-l-4 border-red-500 p-4 my-6 rounded-r-md">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i data-lucide="alert-circle" class="h-5 w-5 text-red-400"></i>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-red-800">Error</h3>
+                    <div class="mt-2 text-sm text-red-700">
+                        <p id="error-message">Something went wrong.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Loading State -->
         <div id="loading-state" class="hidden flex-col items-center justify-center py-20">
             <div class="loader mb-6"></div>
-            <h2 id="loading-title" class="text-2xl font-semibold text-gray-700 font-serif">Searching Knowledge Base...</h2>
-            <p id="loading-subtitle" class="text-gray-500 mt-2">Checking if this article already exists.</p>
+            <h2 id="loading-title" class="text-2xl font-semibold text-gray-700 font-serif">Searching...</h2>
+            <p id="loading-subtitle" class="text-gray-500 mt-2">Checking knowledge base.</p>
         </div>
 
         <!-- Article Display Area -->
         <div id="article-container" class="hidden pb-20 opacity-0 transition-opacity duration-500">
             
             <div class="flex items-center space-x-2 mb-6" id="badge-container">
-                <!-- Badges will be injected here -->
+                <!-- Badges injected here -->
             </div>
             
             <h1 id="article-title" class="text-4xl md:text-5xl font-bold font-serif text-gray-900 mb-8 border-b pb-4"></h1>
@@ -120,10 +135,15 @@
             measurementId: "G-3842263MML"
         };
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+        let db = null;
+        try {
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+        } catch (e) {
+            console.error("Firebase init failed:", e);
+        }
 
-        // Gemini API configuration (Injected by the secure runtime environment)
+        // Gemini API configuration
         const apiKey = ""; 
         
         // Initialize Lucide icons
@@ -141,6 +161,8 @@
         const articleContent = document.getElementById('article-content');
         const badgeContainer = document.getElementById('badge-container');
         const logoContainer = document.getElementById('logo-container');
+        const errorBanner = document.getElementById('error-banner');
+        const errorMessage = document.getElementById('error-message');
 
         // Main Search Handler
         searchForm.addEventListener('submit', async (e) => {
@@ -148,16 +170,17 @@
             const query = searchInput.value.trim();
             if (!query) return;
 
-            // Transition UI
+            // Reset UI
+            errorBanner.classList.add('hidden');
             searchContainer.classList.remove('centered-search');
             searchContainer.classList.add('top-search');
-            logoContainer.classList.add('hidden'); // Hide logo to make room for article
+            logoContainer.classList.add('hidden');
             articleContainer.classList.add('hidden');
             articleContainer.classList.remove('opacity-100');
             loadingState.classList.remove('hidden');
             loadingState.classList.add('flex');
             
-            // Create a URL-friendly slug for the document ID (e.g. "Quantum Computing" -> "quantum-computing")
+            // Create a URL-friendly slug 
             const slug = query.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
 
             try {
@@ -165,73 +188,94 @@
                 updateLoadingText("Searching Knowledge Base...", "Checking database for existing articles.");
                 
                 let existingData = null;
-                try {
-                    const docRef = doc(db, "articles", slug);
-                    const docSnap = await getDoc(docRef);
-                    if (docSnap.exists()) {
-                        existingData = docSnap.data();
+                
+                if (db) {
+                    try {
+                        const docRef = doc(db, "articles", slug);
+                        const docSnap = await getDoc(docRef);
+                        if (docSnap.exists()) {
+                            existingData = docSnap.data();
+                        }
+                    } catch (dbError) {
+                        console.warn("Firestore read bypass (continuing to AI generation):", dbError.message);
                     }
-                } catch (dbError) {
-                    console.warn("Firestore read error (likely missing security rules). Bypassing cache.", dbError);
-                    // We gracefully continue to generation if DB fails so the app doesn't break
                 }
 
                 // STEP 2: Render existing OR generate new
-                if (existingData) {
+                if (existingData && existingData.content) {
                     renderArticle(existingData.title || query, existingData.content, "cache");
                 } else {
                     await generateNewArticle(query, slug);
                 }
 
             } catch (error) {
-                console.error("Error in application flow:", error);
-                alert("An error occurred while fetching the article. Please try again.");
-                loadingState.classList.add('hidden');
+                console.error("Application error:", error);
+                showError(`Failed to fetch article: ${error.message || 'Unknown error occurred'}`);
             }
         });
 
-        // Function to generate new article via Gemini AI
+        // Exponential backoff fetch for Gemini API
+        async function generateWithGemini(query) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            
+            const payload = {
+                contents: [{ parts: [{ text: query }] }],
+                systemInstruction: { 
+                    parts: [{ text: "You are an expert encyclopedic AI. Write a highly detailed, neutral, and comprehensive Wikipedia-style article about the user's topic. Format the response entirely in Markdown. Do NOT include the main Title/H1 at the very top. Include standard Wikipedia sections where applicable such as: An introductory summary, History, Core Mechanisms, Impact, and See Also. Ensure the tone is objective and informative." }] 
+                }
+            };
+
+            const delays = [1000, 2000, 4000, 8000, 16000];
+            let lastError = null;
+
+            for (let i = 0; i < 5; i++) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    if (!response.ok) {
+                        const errTxt = await response.text();
+                        throw new Error(`API Error ${response.status}: ${errTxt}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // Safely extract the text response
+                    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (!text) throw new Error("Empty response received from AI.");
+                    
+                    return text;
+                    
+                } catch (error) {
+                    lastError = error;
+                    // Wait before retrying
+                    if (i < 4) await new Promise(r => setTimeout(r, delays[i]));
+                }
+            }
+            throw lastError; // Throw the last error if all 5 retries fail
+        }
+
+        // Function to generate new article
         async function generateNewArticle(query, slug) {
             updateLoadingText("Generating AI Article...", `Writing a comprehensive Wikipedia page for "${query}". This may take a few seconds.`);
             
-            const prompt = `You are an expert encyclopedic AI. Write a highly detailed, neutral, and comprehensive Wikipedia-style article about "${query}". 
-            Format the response entirely in Markdown. 
-            Do NOT include the main Title/H1 at the very top (I will provide that).
-            Include standard Wikipedia sections where applicable, such as:
-            - An introductory summary paragraph
-            - History / Origins
-            - Core Mechanisms / Key Concepts
-            - Impact / Applications
-            - See Also
-            Ensure the tone is objective and informative.`;
-
-            // Call Gemini via REST API (Standardized method with Exponential Backoff built-in conceptually, 
-            // but implemented simply here for immediate response).
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }]
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error(`API Error: ${response.status}`);
-            }
-
-            const data = await response.json();
-            const markdownContent = data.candidates?.[0]?.content?.parts?.[0]?.text || "Failed to generate content.";
+            const markdownContent = await generateWithGemini(query);
 
             // Save to Firestore so the next user gets the cached version
-            try {
-                const docRef = doc(db, "articles", slug);
-                await setDoc(docRef, {
-                    title: query,
-                    content: markdownContent,
-                    createdAt: serverTimestamp()
-                });
-            } catch (dbError) {
-                console.warn("Failed to save to Firestore (likely missing rules), but will still show article.", dbError);
+            if (db) {
+                try {
+                    const docRef = doc(db, "articles", slug);
+                    await setDoc(docRef, {
+                        title: query,
+                        content: markdownContent,
+                        createdAt: serverTimestamp()
+                    });
+                } catch (dbError) {
+                    console.warn("Firestore write bypass (article generated but not saved):", dbError.message);
+                }
             }
 
             // Render
@@ -273,7 +317,15 @@
             loadingTitle.innerText = title;
             loadingSubtitle.innerText = subtitle;
         }
+
+        function showError(msg) {
+            loadingState.classList.add('hidden');
+            loadingState.classList.remove('flex');
+            errorMessage.innerText = msg;
+            errorBanner.classList.remove('hidden');
+        }
     </script>
 </body>
 </html>
+
 
