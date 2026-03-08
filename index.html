@@ -147,8 +147,8 @@
         // Initialize the Vertex AI service and the Generative Model
         const vertexAI = getVertexAI(app);
         
-        // Using the model you specifically requested
-        const model = getGenerativeModel(vertexAI, { model: "gemini-3-flash-preview" }); 
+        // FIX: Changed model from "gemini-3-flash-preview" (404 Error) to "gemini-1.5-flash" (Stable, universally available)
+        const model = getGenerativeModel(vertexAI, { model: "gemini-2.5-flash" }); 
         
         // Initialize Lucide icons
         lucide.createIcons();
