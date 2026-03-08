@@ -40,10 +40,20 @@
             100% { transform: rotate(360deg); }
         }
         
-        /* Smooth transitions */
         #search-container { transition: all 0.5s ease-in-out; }
         .centered-search { min-height: 80vh; display: flex; flex-direction: column; justify-content: center; }
         .top-search { min-height: auto; padding-top: 2rem; padding-bottom: 2rem; }
+
+        /* Kebab Menu styles */
+        .menu-dropdown {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 100%;
+            z-index: 40;
+            min-width: 200px;
+        }
+        .menu-dropdown.show { display: block; }
     </style>
 </head>
 <body class="bg-white text-gray-800 font-sans antialiased min-h-screen">
@@ -64,7 +74,7 @@
                     <input 
                         type="text" 
                         id="search-input" 
-                        placeholder="Search for any topic, person, or concept..." 
+                        placeholder="Search for any topic..." 
                         class="w-full pl-12 pr-4 py-4 text-lg border border-gray-300 rounded-full shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow"
                         required
                     >
@@ -78,14 +88,10 @@
         <!-- Error Banner -->
         <div id="error-banner" class="hidden bg-red-50 border-l-4 border-red-500 p-4 my-6 rounded-r-md">
             <div class="flex">
-                <div class="flex-shrink-0">
-                    <i data-lucide="alert-circle" class="h-5 w-5 text-red-400"></i>
-                </div>
+                <div class="flex-shrink-0"><i data-lucide="alert-circle" class="h-5 w-5 text-red-400"></i></div>
                 <div class="ml-3">
                     <h3 class="text-sm font-medium text-red-800">Error</h3>
-                    <div class="mt-2 text-sm text-red-700">
-                        <p id="error-message">Something went wrong.</p>
-                    </div>
+                    <div class="mt-2 text-sm text-red-700"><p id="error-message"></p></div>
                 </div>
             </div>
         </div>
@@ -94,14 +100,32 @@
         <div id="loading-state" class="hidden flex-col items-center justify-center py-20">
             <div class="loader mb-6"></div>
             <h2 id="loading-title" class="text-2xl font-semibold text-gray-700 font-serif">Searching...</h2>
-            <p id="loading-subtitle" class="text-gray-500 mt-2">Checking knowledge base.</p>
+            <p id="loading-subtitle" class="text-gray-500 mt-2 text-center max-w-md"></p>
         </div>
 
         <!-- Article Display Area -->
         <div id="article-container" class="hidden pb-20 opacity-0 transition-opacity duration-500">
             
-            <div class="flex items-center space-x-2 mb-6" id="badge-container">
-                <!-- Badges injected here -->
+            <div class="flex justify-between items-start mb-4">
+                <div class="flex flex-wrap gap-2" id="badge-container"></div>
+                
+                <!-- Kebab Menu -->
+                <div class="relative">
+                    <button id="menu-button" class="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                        <i data-lucide="more-vertical" class="w-6 h-6 text-gray-600"></i>
+                    </button>
+                    <div id="kebab-menu" class="menu-dropdown bg-white border border-gray-200 shadow-xl rounded-lg py-2 mt-1">
+                        <button id="details-btn" class="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center text-sm font-medium text-gray-700">
+                            <i data-lucide="info" class="w-4 h-4 mr-2"></i> Details
+                        </button>
+                        <button id="update-btn" class="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center text-sm font-medium text-gray-700">
+                            <i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i> Request article update
+                        </button>
+                        <button id="share-btn" class="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center text-sm text-gray-700">
+                            <i data-lucide="share-2" class="w-4 h-4 mr-2"></i> Copy link
+                        </button>
+                    </div>
+                </div>
             </div>
             
             <h1 id="article-title" class="text-4xl md:text-5xl font-bold font-serif text-gray-900 mb-8 border-b pb-4"></h1>
@@ -109,16 +133,49 @@
             <div id="article-content" class="markdown-body text-lg"></div>
             
             <div class="mt-12 pt-6 border-t border-gray-200 text-sm text-gray-500 flex justify-between items-center">
-                <p>Powered by Vertex AI in Firebase</p>
+                <p id="footer-text">SuperInfo Knowledge Base</p>
                 <button onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="text-blue-600 hover:underline flex items-center">
                     Back to top <i data-lucide="arrow-up" class="w-4 h-4 ml-1"></i>
                 </button>
             </div>
         </div>
-
     </div>
 
-    <!-- Application Logic -->
+    <!-- Modals Overlay -->
+    <div id="modal-overlay" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4 transition-opacity">
+        
+        <!-- Details Modal -->
+        <div id="details-modal" class="hidden bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <h3 class="text-xl font-bold mb-4 flex items-center text-gray-900">
+                <i data-lucide="info" class="w-5 h-5 mr-2 text-blue-600"></i> Article Details
+            </h3>
+            <div id="details-content" class="space-y-3 text-sm text-gray-700">
+                <!-- Content injected via JS -->
+            </div>
+            <div class="mt-6 flex justify-end">
+                <button class="close-modal bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-lg font-medium transition-colors">Close</button>
+            </div>
+        </div>
+
+        <!-- Update Request Modal -->
+        <div id="update-modal" class="hidden bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <h3 class="text-xl font-bold mb-2 flex items-center text-gray-900">
+                <i data-lucide="refresh-cw" class="w-5 h-5 mr-2 text-blue-600"></i> Request Update
+            </h3>
+            <p class="text-sm text-gray-600 mb-4">What specific information is missing, incorrect, or needs to be changed? The AI will use this context to rebuild the article.</p>
+            <textarea 
+                id="update-context" 
+                rows="4" 
+                class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none" 
+                placeholder="e.g., Include the latest 2024 election results or expand on their early childhood..."
+            ></textarea>
+            <div class="mt-6 flex justify-end space-x-3">
+                <button class="close-modal bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-lg font-medium transition-colors">Cancel</button>
+                <button id="submit-update-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">Update Article</button>
+            </div>
+        </div>
+    </div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -137,9 +194,15 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const vertexAI = getVertexAI(app);
-        const model = getGenerativeModel(vertexAI, { model: "gemini-2.5-flash" }); 
+        const model = getGenerativeModel(vertexAI, { 
+            model: "gemini-2.5-flash",
+            generationConfig: { responseMimeType: "application/json" } 
+        }); 
         
         lucide.createIcons();
+
+        // UI State
+        let currentArticle = { title: '', slug: '', content: '', tags: [] };
 
         // DOM Elements
         const searchForm = document.getElementById('search-form');
@@ -155,26 +218,159 @@
         const logoContainer = document.getElementById('logo-container');
         const errorBanner = document.getElementById('error-banner');
         const errorMessage = document.getElementById('error-message');
+        const kebabMenu = document.getElementById('kebab-menu');
+        const menuBtn = document.getElementById('menu-button');
+        
+        // Modal Elements
+        const modalOverlay = document.getElementById('modal-overlay');
+        const detailsModal = document.getElementById('details-modal');
+        const updateModal = document.getElementById('update-modal');
+        const detailsContent = document.getElementById('details-content');
+        const updateContextInput = document.getElementById('update-context');
+        const submitUpdateBtn = document.getElementById('submit-update-btn');
+        const detailsBtn = document.getElementById('details-btn');
 
         /**
-         * Core Search Function
+         * Search and Navigation
          */
-        async function performSearch(query, updateHistory = true) {
+        async function performSearch(query, updateHistory = true, forceUpdate = false, updateContext = "") {
             if (!query) return;
-
-            // Normalize Query
             const cleanQuery = query.trim();
             const slug = cleanQuery.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
 
-            // Update URL and Title
             if (updateHistory) {
-                const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?article=' + encodeURIComponent(cleanQuery);
-                window.history.pushState({ path: newUrl, query: cleanQuery }, '', newUrl);
+                const newUrl = window.location.pathname + '?article=' + encodeURIComponent(cleanQuery);
+                window.history.pushState({ query: cleanQuery }, '', newUrl);
             }
             document.title = `${cleanQuery} - SuperInfo Wiki`;
             searchInput.value = cleanQuery;
 
-            // Prepare UI
+            hideUI();
+            
+            try {
+                if (!forceUpdate) {
+                    updateLoadingText("Searching Archive...", "Looking for existing documentation.");
+                    const docSnap = await getDoc(doc(db, "articles", slug));
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        renderArticle(data.title, data.content, "cache", data.tags || []);
+                        return;
+                    }
+                }
+                
+                await generateOrUpdateArticle(cleanQuery, slug, forceUpdate, updateContext);
+
+            } catch (error) {
+                showError(`Navigation Error: ${error.message}`);
+            }
+        }
+
+        /**
+         * Generation Logic (Creation or Update)
+         */
+        async function generateOrUpdateArticle(query, slug, isUpdate = false, updateContext = "") {
+            const task = isUpdate ? "Updating and Verifying" : "Generating";
+            let subtitle = `Compiling comprehensive data for "${query}". Checking for the latest information and categorizing.`;
+            if (isUpdate && updateContext) {
+                subtitle = `Applying requested updates to "${query}"...`;
+            }
+            updateLoadingText(`${task} Article...`, subtitle);
+            
+            // System prompt for structured JSON return
+            let prompt = `You are a professional encyclopedia generator. Generate a JSON response for the topic: "${query}".
+            If this is an update request, specifically look for new developments or missing nuances compared to general knowledge.
+            
+            JSON structure:
+            {
+              "title": "Clean version of the title",
+              "content": "Full markdown content. Use Wikipedia style. Include internal links as [Topic](?article=Topic).",
+              "tags": ["Tag1", "Tag2"]
+            }
+            
+            Tags should include topic type (e.g., "Scientific", "Biography") and status (e.g., "Rapidly Changing", "Stable", "Historically Significant").
+            Always include "Newly Generated" or "Recently Updated" in tags.`;
+
+            // Inject the user's specific context if provided
+            if (isUpdate && updateContext) {
+                prompt += `\n\nCRITICAL UPDATE INSTRUCTIONS: The user explicitly requested the following updates, additions, or focus areas: "${updateContext}". Ensure the newly generated article directly addresses and incorporates this information prominently.`;
+            }
+
+            try {
+                const result = await model.generateContent(prompt);
+                const responseText = result.response.text();
+                const data = JSON.parse(responseText);
+                
+                await setDoc(doc(db, "articles", slug), {
+                    ...data,
+                    updatedAt: serverTimestamp(),
+                    createdAt: isUpdate ? (await getDoc(doc(db, "articles", slug))).data()?.createdAt : serverTimestamp()
+                });
+
+                renderArticle(data.title, data.content, isUpdate ? "update" : "ai", data.tags);
+            } catch (err) {
+                throw new Error("AI Processing failed: " + err.message);
+            }
+        }
+
+        /**
+         * Render Logic
+         */
+        function renderArticle(title, markdown, source, tags = []) {
+            currentArticle = { title, content: markdown, tags };
+            
+            loadingState.classList.add('hidden');
+            loadingState.classList.remove('flex');
+            
+            articleTitle.innerText = title;
+            articleContent.innerHTML = marked.parse(markdown);
+            
+            badgeContainer.innerHTML = '';
+            
+            // Base Source Badge
+            const sourceInfo = {
+                cache: { color: 'bg-green-100 text-green-800', icon: 'database', text: 'Verified Record' },
+                ai: { color: 'bg-purple-100 text-purple-800', icon: 'sparkles', text: 'AI Generated' },
+                update: { color: 'bg-blue-100 text-blue-800', icon: 'refresh-cw', text: 'Recently Updated' }
+            }[source];
+
+            addBadge(sourceInfo.text, sourceInfo.color, sourceInfo.icon);
+
+            // AI Generated Tags
+            tags.forEach(tag => {
+                let color = 'bg-gray-100 text-gray-700';
+                if (tag.toLowerCase().includes('rapidly')) color = 'bg-orange-100 text-orange-800';
+                if (tag.toLowerCase().includes('scientific')) color = 'bg-cyan-100 text-cyan-800';
+                addBadge(tag, color, 'tag');
+            });
+            
+            lucide.createIcons();
+            interceptLinks();
+
+            articleContainer.classList.remove('hidden');
+            void articleContainer.offsetWidth; 
+            articleContainer.classList.add('opacity-100');
+        }
+
+        function addBadge(text, color, icon) {
+            const span = document.createElement('span');
+            span.className = `inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${color}`;
+            span.innerHTML = `<i data-lucide="${icon}" class="w-3 h-3 mr-1"></i> ${text}`;
+            badgeContainer.appendChild(span);
+        }
+
+        function interceptLinks() {
+            articleContent.querySelectorAll('a').forEach(link => {
+                const href = link.getAttribute('href');
+                if (href && href.startsWith('?article=')) {
+                    link.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        performSearch(decodeURIComponent(href.split('=')[1]));
+                    });
+                }
+            });
+        }
+
+        function hideUI() {
             errorBanner.classList.add('hidden');
             searchContainer.classList.remove('centered-search');
             searchContainer.classList.add('top-search');
@@ -183,137 +379,106 @@
             articleContainer.classList.remove('opacity-100');
             loadingState.classList.remove('hidden');
             loadingState.classList.add('flex');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-            
-            try {
-                updateLoadingText("Searching Knowledge Base...", "Checking database for existing articles.");
-                
-                let existingData = null;
-                try {
-                    const docRef = doc(db, "articles", slug);
-                    const docSnap = await getDoc(docRef);
-                    if (docSnap.exists()) {
-                        existingData = docSnap.data();
-                    }
-                } catch (dbError) {
-                    console.warn("Firestore read bypassed:", dbError.message);
-                }
-
-                if (existingData && existingData.content) {
-                    renderArticle(existingData.title || cleanQuery, existingData.content, "cache");
-                } else {
-                    await generateNewArticle(cleanQuery, slug);
-                }
-
-            } catch (error) {
-                console.error("Application error:", error);
-                showError(`Failed to fetch article: ${error.message}`);
-            }
+            kebabMenu.classList.remove('show');
+            closeModal();
         }
 
         /**
-         * Generate using AI
+         * Modals & Kebab Menu Events
          */
-        async function generateNewArticle(query, slug) {
-            updateLoadingText("Generating AI Article...", `Writing a comprehensive Wikipedia page for "${query}". This may take a few seconds.`);
-            
-            const prompt = `You are an expert encyclopedic AI. Write a highly detailed, neutral, and comprehensive Wikipedia-style article about "${query}". 
-            Format the response entirely in Markdown. 
-            Do NOT include the main Title/H1 at the very top.
-            Include standard Wikipedia sections.
-            CRITICAL: When mentioning related concepts, topics, or entities, wrap them in Wikipedia-style internal links using the format [Topic Name](?article=Topic Name). This is essential for navigation.
-            Ensure the tone is objective and informative.`;
-
-            let markdownContent = "";
-            try {
-                const result = await model.generateContent(prompt);
-                markdownContent = result.response.text();
-                if (!markdownContent) throw new Error("Received empty response from AI model.");
-            } catch (aiError) {
-                throw new Error("Vertex AI Generation failed: " + aiError.message);
-            }
-
-            try {
-                const docRef = doc(db, "articles", slug);
-                await setDoc(docRef, {
-                    title: query,
-                    content: markdownContent,
-                    createdAt: serverTimestamp()
-                });
-            } catch (dbError) {
-                console.warn("Firestore write bypassed:", dbError.message);
-            }
-
-            renderArticle(query, markdownContent, "ai");
+        function openModal(modalId) {
+            modalOverlay.classList.remove('hidden');
+            detailsModal.classList.add('hidden');
+            updateModal.classList.add('hidden');
+            document.getElementById(modalId).classList.remove('hidden');
+            kebabMenu.classList.remove('show');
         }
 
-        /**
-         * Render Article and Intercept Links
-         */
-        function renderArticle(title, markdown, source) {
-            loadingState.classList.add('hidden');
-            loadingState.classList.remove('flex');
+        function closeModal() {
+            modalOverlay.classList.add('hidden');
+            updateContextInput.value = '';
+        }
+
+        // Close modal when clicking the close buttons or outside the modal box
+        document.querySelectorAll('.close-modal').forEach(btn => {
+            btn.addEventListener('click', closeModal);
+        });
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) closeModal();
+        });
+
+        // Kebab toggle
+        menuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            kebabMenu.classList.toggle('show');
+        });
+
+        // Global click to close kebab menu
+        document.addEventListener('click', () => kebabMenu.classList.remove('show'));
+
+        // Details Logic
+        detailsBtn.addEventListener('click', () => {
+            const wordCount = currentArticle.content ? currentArticle.content.trim().split(/\s+/).length : 0;
+            const readingTime = Math.ceil(wordCount / 200); // avg 200 words per min
             
-            articleTitle.innerText = title;
-            articleContent.innerHTML = marked.parse(markdown);
-            
-            // Set Badges
-            badgeContainer.innerHTML = '';
-            const badgeClass = source === 'cache' ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800';
-            const badgeIcon = source === 'cache' ? 'database' : 'sparkles';
-            const badgeText = source === 'cache' ? 'Loaded from Database' : 'Newly Generated by AI';
-            
-            badgeContainer.innerHTML = `
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${badgeClass}">
-                    <i data-lucide="${badgeIcon}" class="w-3 h-3 mr-1"></i> ${badgeText}
-                </span>
+            detailsContent.innerHTML = `
+                <div class="grid grid-cols-3 gap-2 border-b border-gray-100 pb-3">
+                    <span class="font-semibold text-gray-500 col-span-1">Title:</span>
+                    <span class="col-span-2 text-gray-900">${currentArticle.title}</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2 border-b border-gray-100 py-3">
+                    <span class="font-semibold text-gray-500 col-span-1">Tags:</span>
+                    <span class="col-span-2 text-gray-900">${currentArticle.tags.join(', ') || 'None'}</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2 border-b border-gray-100 py-3">
+                    <span class="font-semibold text-gray-500 col-span-1">Word Count:</span>
+                    <span class="col-span-2 text-gray-900">${wordCount.toLocaleString()} words</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2 pt-3">
+                    <span class="font-semibold text-gray-500 col-span-1">Read Time:</span>
+                    <span class="col-span-2 text-gray-900">~${readingTime} min</span>
+                </div>
             `;
-            
-            lucide.createIcons();
+            openModal('details-modal');
+        });
 
-            // Intercept internal article links
-            const links = articleContent.querySelectorAll('a');
-            links.forEach(link => {
-                const href = link.getAttribute('href');
-                if (href && href.startsWith('?article=')) {
-                    link.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        const nextArticle = decodeURIComponent(href.split('=')[1]);
-                        performSearch(nextArticle);
-                    });
-                }
-            });
+        // Update Request Logic
+        document.getElementById('update-btn').addEventListener('click', () => {
+            openModal('update-modal');
+            setTimeout(() => updateContextInput.focus(), 100);
+        });
 
-            articleContainer.classList.remove('hidden');
-            void articleContainer.offsetWidth; 
-            articleContainer.classList.add('opacity-100');
-        }
+        submitUpdateBtn.addEventListener('click', () => {
+            const query = new URLSearchParams(window.location.search).get('article');
+            const context = updateContextInput.value.trim();
+            closeModal();
+            if (query) performSearch(query, false, true, context);
+        });
 
-        // Search Form Submit
+        // Share Logic
+        document.getElementById('share-btn').addEventListener('click', () => {
+            navigator.clipboard.writeText(window.location.href);
+            kebabMenu.classList.remove('show');
+            alert("Link copied to clipboard!"); // Simple fallback since we don't have a toast component built in
+        });
+
+        /**
+         * Global Events
+         */
         searchForm.addEventListener('submit', (e) => {
             e.preventDefault();
             performSearch(searchInput.value);
         });
 
-        // Handle Back/Forward Browser Buttons
-        window.addEventListener('popstate', (event) => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const article = urlParams.get('article');
-            if (article) {
-                performSearch(article, false);
-            } else {
-                // Reset to Home
-                location.reload(); 
-            }
+        window.addEventListener('popstate', () => {
+            const article = new URLSearchParams(window.location.search).get('article');
+            if (article) performSearch(article, false);
+            else location.reload();
         });
 
-        // Initial Load Check
         window.addEventListener('DOMContentLoaded', () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const initialArticle = urlParams.get('article');
-            if (initialArticle) {
-                performSearch(initialArticle, false);
-            }
+            const article = new URLSearchParams(window.location.search).get('article');
+            if (article) performSearch(article, false);
         });
 
         function updateLoadingText(title, subtitle) {
@@ -330,3 +495,4 @@
     </script>
 </body>
 </html>
+
