@@ -206,6 +206,9 @@
                         <button id="details-btn" class="w-full text-left px-4 py-3 hover:bg-surface-variant flex items-center text-sm font-medium text-on-surface ripple-target transition-colors">
                             <i data-lucide="info" class="w-5 h-5 mr-3 text-on-surface-variant"></i> Article Details
                         </button>
+                        <button id="edit-btn" class="w-full text-left px-4 py-3 hover:bg-surface-variant flex items-center text-sm font-medium text-on-surface ripple-target transition-colors">
+                            <i data-lucide="edit-3" class="w-5 h-5 mr-3 text-on-surface-variant"></i> Manual Edit
+                        </button>
                         <button id="update-btn" class="w-full text-left px-4 py-3 hover:bg-surface-variant flex items-center text-sm font-medium text-on-surface ripple-target transition-colors">
                             <i data-lucide="refresh-cw" class="w-5 h-5 mr-3 text-on-surface-variant"></i> Request Update
                         </button>
@@ -246,6 +249,31 @@
             </div>
         </div>
 
+        <!-- Manual Edit Modal (M3 Dialog) -->
+        <div id="edit-modal" class="hidden m3-dialog bg-surface-container-high rounded-4xl max-w-2xl w-full p-6 shadow-m3-elevation-3">
+            <h3 class="text-2xl font-normal mb-3 flex items-center text-on-surface">
+                <i data-lucide="edit-3" class="w-6 h-6 mr-3 text-primary"></i> Manual Edit
+            </h3>
+            <p class="text-[15px] text-on-surface-variant mb-6 leading-relaxed">Modify the raw Markdown for this article. Changes will be saved to the database immediately.</p>
+            
+            <div class="relative w-full mb-2">
+                <textarea 
+                    id="edit-content-input" 
+                    rows="12" 
+                    class="peer w-full bg-surface border border-outline rounded text-on-surface p-4 pt-5 outline-none focus:border-primary focus:border-2 transition-all resize-none font-mono text-sm"
+                    placeholder=" "
+                ></textarea>
+                <label class="absolute text-on-surface-variant duration-300 transform -translate-y-4 scale-75 top-2 z-10 origin-[0] bg-surface px-2 peer-focus:px-2 peer-focus:text-primary peer-placeholder-shown:scale-100 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:top-6 peer-focus:top-2 peer-focus:scale-75 left-2">
+                    Markdown Content
+                </label>
+            </div>
+
+            <div class="mt-8 flex justify-end space-x-2">
+                <button class="close-modal text-primary px-5 py-2.5 rounded-full font-medium hover:bg-primary/10 transition-colors ripple-target">Cancel</button>
+                <button id="submit-manual-edit-btn" class="bg-primary text-on-primary px-6 py-2.5 rounded-full font-medium hover:bg-primary/90 transition-colors shadow-sm ripple-target">Save Changes</button>
+            </div>
+        </div>
+
         <!-- Update Request Modal (M3 Dialog) -->
         <div id="update-modal" class="hidden m3-dialog bg-surface-container-high rounded-4xl max-w-md w-full p-6 shadow-m3-elevation-3">
             <h3 class="text-2xl font-normal mb-3 flex items-center text-on-surface">
@@ -277,7 +305,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, serverTimestamp, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getVertexAI, getGenerativeModel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-vertexai.js";
 
         const firebaseConfig = {
@@ -349,10 +377,14 @@
         const modalOverlay = document.getElementById('modal-overlay');
         const detailsModal = document.getElementById('details-modal');
         const updateModal = document.getElementById('update-modal');
+        const editModal = document.getElementById('edit-modal');
         const detailsContent = document.getElementById('details-content');
         const updateContextInput = document.getElementById('update-context');
+        const editContentInput = document.getElementById('edit-content-input');
         const submitUpdateBtn = document.getElementById('submit-update-btn');
+        const submitManualEditBtn = document.getElementById('submit-manual-edit-btn');
         const detailsBtn = document.getElementById('details-btn');
+        const editBtn = document.getElementById('edit-btn');
 
         /**
          * Search and Navigation
@@ -377,6 +409,7 @@
                     const docSnap = await getDoc(doc(db, "articles", slug));
                     if (docSnap.exists()) {
                         const data = docSnap.data();
+                        currentArticle.slug = slug;
                         renderArticle(data.title, data.content, "cache", data.tags || []);
                         return;
                     }
@@ -424,6 +457,7 @@
                 const responseText = result.response.text();
                 const data = JSON.parse(responseText);
                 
+                currentArticle.slug = slug;
                 await setDoc(doc(db, "articles", slug), {
                     ...data,
                     updatedAt: serverTimestamp(),
@@ -440,7 +474,7 @@
          * Render Logic
          */
         function renderArticle(title, markdown, source, tags = []) {
-            currentArticle = { title, content: markdown, tags };
+            currentArticle = { ...currentArticle, title, content: markdown, tags };
             
             loadingState.classList.add('hidden');
             loadingState.classList.remove('flex');
@@ -454,8 +488,9 @@
             const sourceInfo = {
                 cache: { color: 'bg-secondary-container text-on-secondary-container', icon: 'database', text: 'Verified Record' },
                 ai: { color: 'bg-tertiary-container text-on-tertiary-container', icon: 'sparkles', text: 'AI Generated' },
-                update: { color: 'bg-primary-container text-on-primary-container', icon: 'refresh-cw', text: 'Recently Updated' }
-            }[source];
+                update: { color: 'bg-primary-container text-on-primary-container', icon: 'refresh-cw', text: 'Recently Updated' },
+                manual: { color: 'bg-primary-container text-on-primary-container', icon: 'edit-3', text: 'Manually Edited' }
+            }[source] || { color: 'bg-secondary-container text-on-secondary-container', icon: 'database', text: 'Knowledge Record' };
 
             addBadge(sourceInfo.text, sourceInfo.color, sourceInfo.icon);
 
@@ -518,6 +553,7 @@
                 modalOverlay.classList.add('show');
                 detailsModal.classList.add('hidden');
                 updateModal.classList.add('hidden');
+                editModal.classList.add('hidden');
                 
                 const targetModal = document.getElementById(modalId);
                 targetModal.classList.remove('hidden');
@@ -580,6 +616,35 @@
             openModal('details-modal');
         });
 
+        // Manual Edit Logic
+        editBtn.addEventListener('click', () => {
+            editContentInput.value = currentArticle.content;
+            openModal('edit-modal');
+            setTimeout(() => editContentInput.focus(), 300);
+        });
+
+        submitManualEditBtn.addEventListener('click', async () => {
+            const newContent = editContentInput.value.trim();
+            if (!newContent) return;
+
+            try {
+                closeModal();
+                updateLoadingText("Saving Changes", "Writing your manual modifications to the database.");
+                loadingState.classList.remove('hidden');
+                loadingState.classList.add('flex');
+                articleContainer.classList.add('hidden');
+
+                await updateDoc(doc(db, "articles", currentArticle.slug), {
+                    content: newContent,
+                    updatedAt: serverTimestamp()
+                });
+
+                renderArticle(currentArticle.title, newContent, "manual", currentArticle.tags);
+            } catch (err) {
+                showError(`Save failed: ${err.message}`);
+            }
+        });
+
         // Update Request Logic
         document.getElementById('update-btn').addEventListener('click', () => {
             openModal('update-modal');
@@ -597,7 +662,15 @@
         document.getElementById('share-btn').addEventListener('click', () => {
             navigator.clipboard.writeText(window.location.href);
             kebabMenu.classList.remove('show');
-            alert("Link copied to clipboard!"); 
+            // Using custom toast logic would be better but keeping it simple for now
+            const btn = document.getElementById('share-btn');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = `<i data-lucide="check" class="w-5 h-5 mr-3 text-primary"></i> Copied!`;
+            lucide.createIcons();
+            setTimeout(() => {
+                btn.innerHTML = originalHtml;
+                lucide.createIcons();
+            }, 2000);
         });
 
         /**
