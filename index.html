@@ -23,7 +23,7 @@
         .markdown-body ul { list-style-type: disc; padding-left: 2rem; margin-bottom: 1rem; }
         .markdown-body ol { list-style-type: decimal; padding-left: 2rem; margin-bottom: 1rem; }
         .markdown-body strong { font-weight: 600; color: #111827; }
-        .markdown-body a { color: #2563eb; text-decoration: none; }
+        .markdown-body a { color: #2563eb; text-decoration: none; cursor: pointer; }
         .markdown-body a:hover { text-decoration: underline; }
         .markdown-body blockquote { border-left: 4px solid #e5e7eb; padding-left: 1rem; color: #4b5563; font-style: italic; }
         
@@ -120,14 +120,10 @@
 
     <!-- Application Logic -->
     <script type="module">
-        // Import standard Firebase app & Firestore
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        
-        // Import Firebase Vertex AI SDK
         import { getVertexAI, getGenerativeModel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-vertexai.js";
 
-        // Your provided Firebase Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyB7vXm-KjKfnfMi-JgttejMV_uXoZZTWnQ",
             authDomain: "superinfo-f31f5.firebaseapp.com",
@@ -138,19 +134,11 @@
             measurementId: "G-3842263MML"
         };
 
-        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
-        
-        // Initialize Firestore
         const db = getFirestore(app);
-
-        // Initialize the Vertex AI service and the Generative Model
         const vertexAI = getVertexAI(app);
-        
-        // FIX: Changed model from "gemini-3-flash-preview" (404 Error) to "gemini-1.5-flash" (Stable, universally available)
         const model = getGenerativeModel(vertexAI, { model: "gemini-2.5-flash" }); 
         
-        // Initialize Lucide icons
         lucide.createIcons();
 
         // DOM Elements
@@ -168,13 +156,25 @@
         const errorBanner = document.getElementById('error-banner');
         const errorMessage = document.getElementById('error-message');
 
-        // Main Search Handler
-        searchForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const query = searchInput.value.trim();
+        /**
+         * Core Search Function
+         */
+        async function performSearch(query, updateHistory = true) {
             if (!query) return;
 
-            // Reset UI
+            // Normalize Query
+            const cleanQuery = query.trim();
+            const slug = cleanQuery.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+
+            // Update URL and Title
+            if (updateHistory) {
+                const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?article=' + encodeURIComponent(cleanQuery);
+                window.history.pushState({ path: newUrl, query: cleanQuery }, '', newUrl);
+            }
+            document.title = `${cleanQuery} - SuperInfo Wiki`;
+            searchInput.value = cleanQuery;
+
+            // Prepare UI
             errorBanner.classList.add('hidden');
             searchContainer.classList.remove('centered-search');
             searchContainer.classList.add('top-search');
@@ -183,12 +183,9 @@
             articleContainer.classList.remove('opacity-100');
             loadingState.classList.remove('hidden');
             loadingState.classList.add('flex');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             
-            // Create a URL-friendly slug (e.g. "Eiffel Tower" -> "eiffel-tower")
-            const slug = query.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-
             try {
-                // STEP 1: Check Database First
                 updateLoadingText("Searching Knowledge Base...", "Checking database for existing articles.");
                 
                 let existingData = null;
@@ -199,51 +196,43 @@
                         existingData = docSnap.data();
                     }
                 } catch (dbError) {
-                    // If Firestore fails (e.g., security rules), log it but proceed to generate a new article
                     console.warn("Firestore read bypassed:", dbError.message);
                 }
 
-                // STEP 2: Render existing OR generate new via Vertex AI
                 if (existingData && existingData.content) {
-                    renderArticle(existingData.title || query, existingData.content, "cache");
+                    renderArticle(existingData.title || cleanQuery, existingData.content, "cache");
                 } else {
-                    await generateNewArticle(query, slug);
+                    await generateNewArticle(cleanQuery, slug);
                 }
 
             } catch (error) {
                 console.error("Application error:", error);
                 showError(`Failed to fetch article: ${error.message}`);
             }
-        });
+        }
 
-        // Function to generate new article using Vertex AI
+        /**
+         * Generate using AI
+         */
         async function generateNewArticle(query, slug) {
             updateLoadingText("Generating AI Article...", `Writing a comprehensive Wikipedia page for "${query}". This may take a few seconds.`);
             
             const prompt = `You are an expert encyclopedic AI. Write a highly detailed, neutral, and comprehensive Wikipedia-style article about "${query}". 
             Format the response entirely in Markdown. 
-            Do NOT include the main Title/H1 at the very top (I will provide that).
-            Include standard Wikipedia sections where applicable, such as:
-            - An introductory summary paragraph
-            - History / Origins
-            - Core Mechanisms / Key Concepts
-            - Impact / Applications
-            - See Also
+            Do NOT include the main Title/H1 at the very top.
+            Include standard Wikipedia sections.
+            CRITICAL: When mentioning related concepts, topics, or entities, wrap them in Wikipedia-style internal links using the format [Topic Name](?article=Topic Name). This is essential for navigation.
             Ensure the tone is objective and informative.`;
 
             let markdownContent = "";
-
             try {
-                // Generate content using Firebase Vertex AI
                 const result = await model.generateContent(prompt);
                 markdownContent = result.response.text();
-                
                 if (!markdownContent) throw new Error("Received empty response from AI model.");
             } catch (aiError) {
                 throw new Error("Vertex AI Generation failed: " + aiError.message);
             }
 
-            // Save the newly generated content to Firestore
             try {
                 const docRef = doc(db, "articles", slug);
                 await setDoc(docRef, {
@@ -252,14 +241,15 @@
                     createdAt: serverTimestamp()
                 });
             } catch (dbError) {
-                console.warn("Firestore write bypassed (article generated but not saved to cache):", dbError.message);
+                console.warn("Firestore write bypassed:", dbError.message);
             }
 
-            // Render the AI result
             renderArticle(query, markdownContent, "ai");
         }
 
-        // Function to render the article and update UI
+        /**
+         * Render Article and Intercept Links
+         */
         function renderArticle(title, markdown, source) {
             loadingState.classList.add('hidden');
             loadingState.classList.remove('flex');
@@ -267,28 +257,64 @@
             articleTitle.innerText = title;
             articleContent.innerHTML = marked.parse(markdown);
             
-            // Set Badges to show where the data came from
+            // Set Badges
             badgeContainer.innerHTML = '';
-            if (source === 'cache') {
-                badgeContainer.innerHTML = `
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        <i data-lucide="database" class="w-3 h-3 mr-1"></i> Loaded from Database
-                    </span>
-                `;
-            } else {
-                badgeContainer.innerHTML = `
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                        <i data-lucide="sparkles" class="w-3 h-3 mr-1"></i> Newly Generated by AI
-                    </span>
-                `;
-            }
+            const badgeClass = source === 'cache' ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800';
+            const badgeIcon = source === 'cache' ? 'database' : 'sparkles';
+            const badgeText = source === 'cache' ? 'Loaded from Database' : 'Newly Generated by AI';
+            
+            badgeContainer.innerHTML = `
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${badgeClass}">
+                    <i data-lucide="${badgeIcon}" class="w-3 h-3 mr-1"></i> ${badgeText}
+                </span>
+            `;
+            
             lucide.createIcons();
 
+            // Intercept internal article links
+            const links = articleContent.querySelectorAll('a');
+            links.forEach(link => {
+                const href = link.getAttribute('href');
+                if (href && href.startsWith('?article=')) {
+                    link.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const nextArticle = decodeURIComponent(href.split('=')[1]);
+                        performSearch(nextArticle);
+                    });
+                }
+            });
+
             articleContainer.classList.remove('hidden');
-            // Trigger reflow for transition
             void articleContainer.offsetWidth; 
             articleContainer.classList.add('opacity-100');
         }
+
+        // Search Form Submit
+        searchForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            performSearch(searchInput.value);
+        });
+
+        // Handle Back/Forward Browser Buttons
+        window.addEventListener('popstate', (event) => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const article = urlParams.get('article');
+            if (article) {
+                performSearch(article, false);
+            } else {
+                // Reset to Home
+                location.reload(); 
+            }
+        });
+
+        // Initial Load Check
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const initialArticle = urlParams.get('article');
+            if (initialArticle) {
+                performSearch(initialArticle, false);
+            }
+        });
 
         function updateLoadingText(title, subtitle) {
             loadingTitle.innerText = title;
@@ -304,5 +330,3 @@
     </script>
 </body>
 </html>
-
-
